@@ -68,7 +68,7 @@
       position: relative;
       z-index: 2;
       width: 100%;
-      max-width: 520px;
+      max-width: 560px;
       background: var(--card-bg);
       border: 1px solid rgba(245, 198, 95, 0.28);
       border-radius: 22px;
@@ -245,29 +245,66 @@
 
     .list {
       margin-top: 16px;
-      max-height: 235px;
+      max-height: 340px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 7px;
+      gap: 8px;
+      padding-right: 2px;
     }
 
     .item {
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: rgba(7, 10, 18, 0.78);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 11px 13px;
+      border-radius: 12px;
+      background: rgba(7, 10, 18, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .item-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
-    .code { font-family: Consolas, monospace; font-size: 13px; font-weight: 800; color: var(--mint); letter-spacing: 1px; }
-    .meta { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
-    .actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .code { font-family: Consolas, monospace; font-size: 13.5px; font-weight: 800; color: var(--mint); letter-spacing: 1px; }
+    .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .actions { display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
     .mini { width: auto; padding: 5px 8px; font-size: 10.5px; border-radius: 7px; background: rgba(255, 255, 255, 0.08); color: #fff; }
+    .mini:hover { background: rgba(255, 255, 255, 0.15); }
     .mini.del { background: rgba(255, 107, 129, 0.16); color: #ff9aa8; }
+    .mini.del:hover { background: rgba(255, 107, 129, 0.26); }
+
+    .detail-panel {
+      padding: 9px 11px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: #d6dff2;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 2px 0;
+    }
+
+    .detail-label { color: var(--muted); flex-shrink: 0; }
+    .detail-val {
+      text-align: right;
+      word-break: break-all;
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      color: #f4f7ff;
+    }
+    .detail-val.empty { font-family: inherit; color: #7e8ca8; font-style: italic; }
 
     .hidden { display: none; }
   </style>
@@ -315,7 +352,7 @@
           <button class="btn-logout" onclick="logoutUser()">Keluar</button>
         </div>
       </div>
-      <p class="sub">Kelola seluruh key, reset HWID siapa pun, ban/unban, atau hapus key.</p>
+      <p class="sub">Kelola seluruh key, cek HWID & waktu pakai, reset HWID, ban/unban, atau hapus key.</p>
       <div id="slotAdmin"></div>
       <div id="listAdmin" class="list"></div>
     </div>
@@ -336,7 +373,7 @@
           <button class="btn-logout" onclick="logoutUser()">Keluar</button>
         </div>
       </div>
-      <p class="sub">Buat key sendiri (maks. 8 huruf/angka) dan kelola key buatan akun kamu saja.</p>
+      <p class="sub">Buat key sendiri (maks. 8 huruf/angka), lihat detail HWID/waktu pakai, dan kelola key milikmu.</p>
       <div id="slotFriend"></div>
       <div id="listFriend" class="list"></div>
     </div>
@@ -414,6 +451,31 @@
 
     let activeUser = null;
     let activeRole = "friend";
+    const expandedIds = new Set();
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatDateTimeWIB(isoStr) {
+      if (!isoStr) return null;
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return String(isoStr);
+      return d.toLocaleString("id-ID", {
+        timeZone: "Asia/Jakarta",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      }) + " WIB";
+    }
 
     function mountMaker(slotId) {
       document.getElementById("slotAdmin").innerHTML = "";
@@ -467,6 +529,7 @@
     async function logoutUser() {
       await sb.auth.signOut();
       activeUser = null;
+      expandedIds.clear();
       document.getElementById("shell").classList.remove("friend-mode");
       document.getElementById("adminView").classList.add("hidden");
       document.getElementById("friendView").classList.add("hidden");
@@ -534,36 +597,102 @@
       await loadKeys();
     }
 
+    function toggleDetail(id) {
+      if (expandedIds.has(id)) {
+        expandedIds.delete(id);
+      } else {
+        expandedIds.add(id);
+      }
+      loadKeys();
+    }
+
     async function loadKeys() {
       const { data, error } = await sb.from("keys").select("*").order("created_at", { ascending: false }).limit(25);
       if (error) return;
 
       const listEl = document.getElementById(activeRole === "admin" ? "listAdmin" : "listFriend");
       listEl.innerHTML = (data || []).map(row => {
-        const expText = row.expires_at ? new Date(row.expires_at).toLocaleDateString("id-ID") : "LIFETIME";
-        const adminOnly = activeRole === "admin"
-          ? `<button class="mini" onclick="toggleBan('${row.id}','${row.status}')">${row.status === "ACTIVE" ? "Ban" : "Unban"}</button>
-             <button class="mini del" onclick="deleteKey('${row.id}')">Hapus</button>`
+        const isOpen = expandedIds.has(row.id);
+        const expShort = row.expires_at ? new Date(row.expires_at).toLocaleDateString("id-ID") : "LIFETIME";
+        const expFull = row.expires_at ? formatDateTimeWIB(row.expires_at) : "LIFETIME (Permanen)";
+        const createdFull = formatDateTimeWIB(row.created_at) || "-";
+        const activatedFull = formatDateTimeWIB(row.activated_at);
+        const hasHwid = Boolean(row.hwid && String(row.hwid).trim());
+
+        const adminBanBtn = activeRole === "admin"
+          ? `<button class="mini" data-action="ban" data-id="${escapeHtml(row.id)}" data-status="${escapeHtml(row.status)}">${row.status === "ACTIVE" ? "Ban" : "Unban"}</button>`
           : "";
+
+        const deleteBtn = `<button class="mini del" data-action="delete" data-id="${escapeHtml(row.id)}">Hapus</button>`;
+
+        const detailHtml = isOpen ? `
+          <div class="detail-panel">
+            <div class="detail-row">
+              <span class="detail-label">HWID</span>
+              <span class="detail-val ${hasHwid ? "" : "empty"}">${hasHwid ? escapeHtml(row.hwid) : "Belum terikat"}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Pertama Dipakai</span>
+              <span class="detail-val ${activatedFull ? "" : "empty"}">${activatedFull ? escapeHtml(activatedFull) : "Belum pernah dipakai"}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Dibuat Pada</span>
+              <span class="detail-val">${escapeHtml(createdFull)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Expired</span>
+              <span class="detail-val">${escapeHtml(expFull)}</span>
+            </div>
+          </div>
+        ` : "";
 
         return `
           <div class="item">
-            <div>
-              <div class="code">${row.key_code}</div>
-              <div class="meta">${row.notes || "-"} • ${row.status} • Exp: ${expText} ${row.hwid ? "• Bound" : ""}</div>
+            <div class="item-top">
+              <div>
+                <div class="code">${escapeHtml(row.key_code)}</div>
+                <div class="meta">${escapeHtml(row.notes || "-")} • ${escapeHtml(row.status)} • Exp: ${escapeHtml(expShort)} • ${hasHwid ? "HWID Terikat" : "HWID Kosong"} • ${activatedFull ? "Sudah Dipakai" : "Belum Dipakai"}</div>
+              </div>
+              <div class="actions">
+                <button class="mini" data-action="detail" data-id="${escapeHtml(row.id)}">${isOpen ? "Tutup" : "Detail"}</button>
+                <button class="mini" data-action="copy" data-code="${escapeHtml(row.key_code)}">Copy</button>
+                <button class="mini" data-action="reset" data-id="${escapeHtml(row.id)}">Reset</button>
+                ${adminBanBtn}
+                ${deleteBtn}
+              </div>
             </div>
-            <div class="actions">
-              <button class="mini" onclick="navigator.clipboard.writeText('${row.key_code}')">Copy</button>
-              <button class="mini" onclick="resetHwid('${row.id}')">Reset</button>
-              ${adminOnly}
-            </div>
+            ${detailHtml}
           </div>
         `;
       }).join("") || `<div class="meta">Belum ada key.</div>`;
     }
 
+    async function handleListClick(e) {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+
+      if (action === "detail") {
+        toggleDetail(id);
+      } else if (action === "copy") {
+        await navigator.clipboard.writeText(btn.dataset.code || "");
+        btn.textContent = "Tersalin";
+        setTimeout(() => { btn.textContent = "Copy"; }, 1000);
+      } else if (action === "reset") {
+        await resetHwid(id);
+      } else if (action === "ban") {
+        await toggleBan(id, btn.dataset.status);
+      } else if (action === "delete") {
+        await deleteKey(id);
+      }
+    }
+
+    document.getElementById("listAdmin").addEventListener("click", handleListClick);
+    document.getElementById("listFriend").addEventListener("click", handleListClick);
+
     async function resetHwid(id) {
-      await sb.from("keys").update({ hwid: "" }).eq("id", id);
+      await sb.from("keys").update({ hwid: "", activated_at: null }).eq("id", id);
       await loadKeys();
     }
 
@@ -574,8 +703,8 @@
     }
 
     async function deleteKey(id) {
-      if (activeRole !== "admin") return;
       await sb.from("keys").delete().eq("id", id);
+      expandedIds.delete(id);
       await loadKeys();
     }
 
