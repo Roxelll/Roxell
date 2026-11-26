@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ROXELL // GOOGLE AUTH KEY DASHBOARD</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg-deep: #05070d;
+      --card-bg: rgba(13, 17, 29, 0.86);
+      --input-bg: rgba(7, 10, 18, 0.92);
+      --gold: #f5c65f;
+      --gold-2: #ffe39c;
+      --gold-dark: #b98524;
+      --sky: #66b2ff;
+      --sky-2: #b3d9ff;
+      --mint: #5ce6b5;
+      --danger: #ff6b81;
+      --text: #f4f7ff;
+      --muted: #93a1be;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #19223d 0%, var(--bg-deep) 72%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    #particleCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .glow-orb {
+      position: fixed;
+      width: 350px;
+      height: 350px;
+      border-radius: 50%;
+      filter: blur(105px);
+      opacity: 0.24;
+      z-index: 0;
+      pointer-events: none;
+      animation: floatOrb 8s ease-in-out infinite alternate;
+    }
+    .orb-1 { top: -80px; left: -60px; background: var(--gold); }
+    .orb-2 { bottom: -90px; right: -60px; background: var(--sky); animation-delay: 2s; }
+
+    @keyframes floatOrb {
+      from { transform: translate(0, 0) scale(1); }
+      to { transform: translate(28px, 22px) scale(1.12); }
+    }
+
+    .shell {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 520px;
+      background: var(--card-bg);
+      border: 1px solid rgba(245, 198, 95, 0.28);
+      border-radius: 22px;
+      padding: 26px;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+      animation: cardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .shell.friend-mode {
+      border-color: rgba(102, 178, 255, 0.35);
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(18px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .fade-view { animation: viewFade 0.38s ease; }
+    @keyframes viewFade {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .emblem {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, var(--gold-2), var(--gold), var(--gold-dark));
+      color: #0b0e16;
+      font-weight: 900;
+      font-size: 19px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 24px rgba(245, 198, 95, 0.35);
+    }
+
+    .friend-mode .emblem {
+      background: linear-gradient(135deg, var(--sky-2), var(--sky), #2b6cb0);
+      color: #07111e;
+      box-shadow: 0 8px 24px rgba(102, 178, 255, 0.35);
+    }
+
+    .tag {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .friend-mode .tag { color: var(--sky); }
+
+    h1 { margin: 2px 0 0; font-size: 19px; font-weight: 800; }
+    .sub { margin: 0 0 18px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+    .user-email { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .badge {
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.7px;
+      background: rgba(245, 198, 95, 0.14);
+      color: var(--gold);
+      border: 1px solid rgba(245, 198, 95, 0.35);
+    }
+    .friend-mode .badge {
+      background: rgba(102, 178, 255, 0.14);
+      color: var(--sky);
+      border-color: rgba(102, 178, 255, 0.35);
+    }
+
+    .field { margin-bottom: 13px; }
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #cfd8ec;
+      margin-bottom: 6px;
+    }
+    .counter { font-family: Consolas, monospace; font-size: 11px; color: var(--gold); }
+    .friend-mode .counter { color: var(--sky); }
+
+    input, select {
+      width: 100%;
+      padding: 11px 13px;
+      border-radius: 11px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    input:focus, select:focus {
+      border-color: rgba(245, 198, 95, 0.72);
+      box-shadow: 0 0 0 3px rgba(245, 198, 95, 0.15);
+    }
+
+    #customKey {
+      text-transform: uppercase;
+      font-family: Consolas, Monaco, monospace;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px 15px;
+      border: none;
+      border-radius: 11px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    button:active { transform: scale(0.98); }
+
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #ffffff;
+      color: #0b0e16;
+      box-shadow: 0 8px 24px rgba(255, 255, 255, 0.16);
+    }
+    .btn-google:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(255, 255, 255, 0.24); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold-2), var(--gold), var(--gold-dark));
+      color: #0b0e16;
+      margin-top: 4px;
+      box-shadow: 0 8px 22px rgba(245, 198, 95, 0.28);
+    }
+    .friend-mode .btn-primary {
+      background: linear-gradient(135deg, var(--sky-2), var(--sky), #2b6cb0);
+      color: #07111e;
+      box-shadow: 0 8px 22px rgba(102, 178, 255, 0.28);
+    }
+
+    .btn-logout {
+      width: auto;
+      padding: 6px 11px;
+      font-size: 11px;
+      border-radius: 9px;
+      background: rgba(255, 107, 129, 0.14);
+      color: #ff9aa8;
+      border: 1px solid rgba(255, 107, 129, 0.32);
+    }
+
+    .err {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      background: rgba(255, 107, 129, 0.14);
+      border: 1px solid rgba(255, 107, 129, 0.35);
+      color: #ff9ead;
+      display: none;
+    }
+
+    .list {
+      margin-top: 16px;
+      max-height: 235px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .item {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(7, 10, 18, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .code { font-family: Consolas, monospace; font-size: 13px; font-weight: 800; color: var(--mint); letter-spacing: 1px; }
+    .meta { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+    .actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .mini { width: auto; padding: 5px 8px; font-size: 10.5px; border-radius: 7px; background: rgba(255, 255, 255, 0.08); color: #fff; }
+    .mini.del { background: rgba(255, 107, 129, 0.16); color: #ff9aa8; }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="particleCanvas"></canvas>
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+
+  <div id="shell" class="shell">
+    <!-- LOGIN GOOGLE -->
+    <div id="loginView" class="fade-view">
+      <div class="header">
+        <div class="brand">
+          <div class="emblem">R</div>
+          <div>
+            <div class="tag">Google OAuth • Portal</div>
+            <h1>Masuk Akun</h1>
+          </div>
+        </div>
+        <span class="badge">GOOGLE</span>
+      </div>
+      <p class="sub">Login memakai akun Google kamu atau temanmu. Dashboard akan otomatis menyesuaikan peran akun.</p>
+
+      <button class="btn-google" onclick="loginWithGoogle()">
+        <span>G</span>
+        <span>Lanjutkan dengan Akun Google</span>
+      </button>
+      <div id="loginErr" class="err"></div>
+    </div>
+
+    <!-- DASHBOARD ADMIN -->
+    <div id="adminView" class="hidden fade-view">
+      <div class="header">
+        <div class="brand">
+          <div class="emblem">R</div>
+          <div>
+            <div class="tag">Owner Control Center</div>
+            <h1>Dashboard Admin</h1>
+            <div id="adminEmail" class="user-email"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="badge">ADMIN</span>
+          <button class="btn-logout" onclick="logoutUser()">Keluar</button>
+        </div>
+      </div>
+      <p class="sub">Kelola seluruh key, reset HWID siapa pun, ban/unban, atau hapus key.</p>
+      <div id="slotAdmin"></div>
+      <div id="listAdmin" class="list"></div>
+    </div>
+
+    <!-- DASHBOARD TEMAN -->
+    <div id="friendView" class="hidden fade-view">
+      <div class="header">
+        <div class="brand">
+          <div class="emblem">F</div>
+          <div>
+            <div class="tag">Partner Key Hub</div>
+            <h1>Dashboard Teman</h1>
+            <div id="friendEmail" class="user-email"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="badge">FRIEND</span>
+          <button class="btn-logout" onclick="logoutUser()">Keluar</button>
+        </div>
+      </div>
+      <p class="sub">Buat key sendiri (maks. 8 huruf/angka) dan kelola key buatan akun kamu saja.</p>
+      <div id="slotFriend"></div>
+      <div id="listFriend" class="list"></div>
+    </div>
+  </div>
+
+  <template id="makerTpl">
+    <div>
+      <div class="field">
+        <label for="customKey"><span>Key Custom (Opsional)</span><span id="keyCounter" class="counter">0 / 8</span></label>
+        <input id="customKey" type="text" maxlength="8" placeholder="Kosongkan untuk acak (Max 8)" oninput="sanitizeInput(this)" />
+      </div>
+      <div class="field">
+        <label for="expMode">Masa Berlaku (Expired)</label>
+        <select id="expMode" onchange="toggleExp()">
+          <option value="DAYS">Jumlah Hari dari Sekarang</option>
+          <option value="DATE">Tanggal Expired</option>
+          <option value="LIFETIME">Lifetime (Permanen)</option>
+        </select>
+      </div>
+      <div id="daysWrap" class="field">
+        <label for="daysVal">Durasi (Hari)</label>
+        <input id="daysVal" type="number" min="1" value="30" />
+      </div>
+      <div id="dateWrap" class="field hidden">
+        <label for="dateVal">Tanggal Expired</label>
+        <input id="dateVal" type="date" />
+      </div>
+      <div class="field">
+        <label for="noteVal">Catatan / Nama User</label>
+        <input id="noteVal" type="text" placeholder="Contoh: Buyer 01" />
+      </div>
+      <button class="btn-primary" onclick="createKey()">BUAT KEY SEKARANG</button>
+      <div id="makerErr" class="err"></div>
+    </div>
+  </template>
+
+  <script>
+    (function initParticles() {
+      const canvas = document.getElementById("particleCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const pts = [];
+      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+      window.addEventListener("resize", resize);
+      resize();
+      for (let i = 0; i < 48; i++) {
+        pts.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.45,
+          vy: (Math.random() - 0.5) * 0.45,
+          r: Math.random() * 1.8 + 0.7
+        });
+      }
+      function tick() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+          if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(245, 198, 95, 0.55)";
+          ctx.fill();
+        }
+        requestAnimationFrame(tick);
+      }
+      tick();
+    })();
+
+    const SUPABASE_URL = "https://kpmwbsbgyjvhycpgpzdb.supabase.co";
+    const SUPABASE_ANON_KEY = "GANTI_DENGAN_ANON_KEY_KAMU";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let activeUser = null;
+    let activeRole = "friend";
+
+    function mountMaker(slotId) {
+      document.getElementById("slotAdmin").innerHTML = "";
+      document.getElementById("slotFriend").innerHTML = "";
+      document.getElementById(slotId).appendChild(document.getElementById("makerTpl").content.cloneNode(true));
+    }
+
+    function sanitizeInput(el) {
+      const clean = el.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+      el.value = clean;
+      document.getElementById("keyCounter").textContent = `${clean.length} / 8`;
+    }
+
+    function toggleExp() {
+      const mode = document.getElementById("expMode").value;
+      document.getElementById("daysWrap").classList.toggle("hidden", mode !== "DAYS");
+      document.getElementById("dateWrap").classList.toggle("hidden", mode !== "DATE");
+    }
+
+    function randomKey8() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let out = "";
+      for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+      return out;
+    }
+
+    function computeExpiresAt() {
+      const mode = document.getElementById("expMode").value;
+      if (mode === "LIFETIME") return null;
+      if (mode === "DATE") {
+        const d = document.getElementById("dateVal").value;
+        return d ? new Date(d + "T23:59:59").toISOString() : null;
+      }
+      const days = Math.max(1, Number(document.getElementById("daysVal").value || 30));
+      return new Date(Date.now() + days * 86400000).toISOString();
+    }
+
+    async function loginWithGoogle() {
+      const errEl = document.getElementById("loginErr");
+      errEl.style.display = "none";
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin }
+      });
+      if (error) {
+        errEl.textContent = error.message;
+        errEl.style.display = "block";
+      }
+    }
+
+    async function logoutUser() {
+      await sb.auth.signOut();
+      activeUser = null;
+      document.getElementById("shell").classList.remove("friend-mode");
+      document.getElementById("adminView").classList.add("hidden");
+      document.getElementById("friendView").classList.add("hidden");
+      document.getElementById("loginView").classList.remove("hidden");
+    }
+
+    async function routeSession(user) {
+      if (!user) {
+        document.getElementById("adminView").classList.add("hidden");
+        document.getElementById("friendView").classList.add("hidden");
+        document.getElementById("loginView").classList.remove("hidden");
+        return;
+      }
+
+      activeUser = user;
+      const { data: prof } = await sb.from("profiles").select("role").eq("id", user.id).single();
+      activeRole = (prof && prof.role) === "admin" ? "admin" : "friend";
+
+      document.getElementById("loginView").classList.add("hidden");
+      const shell = document.getElementById("shell");
+
+      if (activeRole === "admin") {
+        shell.classList.remove("friend-mode");
+        document.getElementById("friendView").classList.add("hidden");
+        document.getElementById("adminView").classList.remove("hidden");
+        document.getElementById("adminEmail").textContent = user.email;
+        mountMaker("slotAdmin");
+      } else {
+        shell.classList.add("friend-mode");
+        document.getElementById("adminView").classList.add("hidden");
+        document.getElementById("friendView").classList.remove("hidden");
+        document.getElementById("friendEmail").textContent = user.email;
+        mountMaker("slotFriend");
+      }
+
+      await loadKeys();
+    }
+
+    async function createKey() {
+      const errEl = document.getElementById("makerErr");
+      errEl.style.display = "none";
+      let code = document.getElementById("customKey").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!code) code = randomKey8();
+
+      const rawNote = document.getElementById("noteVal").value.trim();
+      const notes = activeRole === "friend" ? `[Friend] ${rawNote || activeUser.email}` : (rawNote || "Admin");
+
+      const { error } = await sb.from("keys").insert({
+        key_code: code,
+        status: "ACTIVE",
+        hwid: "",
+        notes,
+        expires_at: computeExpiresAt(),
+        created_by: activeUser.id
+      });
+
+      if (error) {
+        errEl.textContent = error.message;
+        errEl.style.display = "block";
+        return;
+      }
+
+      document.getElementById("customKey").value = "";
+      document.getElementById("keyCounter").textContent = "0 / 8";
+      await loadKeys();
+    }
+
+    async function loadKeys() {
+      const { data, error } = await sb.from("keys").select("*").order("created_at", { ascending: false }).limit(25);
+      if (error) return;
+
+      const listEl = document.getElementById(activeRole === "admin" ? "listAdmin" : "listFriend");
+      listEl.innerHTML = (data || []).map(row => {
+        const expText = row.expires_at ? new Date(row.expires_at).toLocaleDateString("id-ID") : "LIFETIME";
+        const adminOnly = activeRole === "admin"
+          ? `<button class="mini" onclick="toggleBan('${row.id}','${row.status}')">${row.status === "ACTIVE" ? "Ban" : "Unban"}</button>
+             <button class="mini del" onclick="deleteKey('${row.id}')">Hapus</button>`
+          : "";
+
+        return `
+          <div class="item">
+            <div>
+              <div class="code">${row.key_code}</div>
+              <div class="meta">${row.notes || "-"} • ${row.status} • Exp: ${expText} ${row.hwid ? "• Bound" : ""}</div>
+            </div>
+            <div class="actions">
+              <button class="mini" onclick="navigator.clipboard.writeText('${row.key_code}')">Copy</button>
+              <button class="mini" onclick="resetHwid('${row.id}')">Reset</button>
+              ${adminOnly}
+            </div>
+          </div>
+        `;
+      }).join("") || `<div class="meta">Belum ada key.</div>`;
+    }
+
+    async function resetHwid(id) {
+      await sb.from("keys").update({ hwid: "" }).eq("id", id);
+      await loadKeys();
+    }
+
+    async function toggleBan(id, status) {
+      if (activeRole !== "admin") return;
+      await sb.from("keys").update({ status: status === "ACTIVE" ? "BANNED" : "ACTIVE" }).eq("id", id);
+      await loadKeys();
+    }
+
+    async function deleteKey(id) {
+      if (activeRole !== "admin") return;
+      await sb.from("keys").delete().eq("id", id);
+      await loadKeys();
+    }
+
+    sb.auth.onAuthStateChange(async (_event, session) => {
+      await routeSession(session ? session.user : null);
+    });
+
+    (async function boot() {
+      const { data: { session } } = await sb.auth.getSession();
+      await routeSession(session ? session.user : null);
+    })();
+  </script>
+</body>
+</html>
