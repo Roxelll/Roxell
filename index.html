@@ -34,6 +34,18 @@
       justify-content: center;
       padding: 20px;
       overflow-x: hidden;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    input, select, textarea {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
     }
 
     #particleCanvas {
@@ -453,6 +465,48 @@
     let activeRole = "friend";
     const expandedIds = new Set();
 
+    // Atur ke true jika ingin mengizinkan tombol Copy menyalin key
+    const ALLOW_KEY_COPY = false;
+
+    document.addEventListener("contextmenu", (e) => {
+      if (!e.target.closest("input, select, textarea")) {
+        e.preventDefault();
+      }
+    });
+
+    document.addEventListener("dragstart", (e) => {
+      e.preventDefault();
+    });
+
+    document.addEventListener("copy", (e) => {
+      if (!e.target.closest("input, select, textarea")) {
+        e.preventDefault();
+      }
+    });
+
+    document.addEventListener("cut", (e) => {
+      if (!e.target.closest("input, select, textarea")) {
+        e.preventDefault();
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      const key = e.key.toLowerCase();
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        ["c", "u", "s", "a"].includes(key) &&
+        !e.target.closest("input, select, textarea")
+      ) {
+        e.preventDefault();
+      }
+      if (
+        key === "f12" ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "j", "c"].includes(key))
+      ) {
+        e.preventDefault();
+      }
+    });
+
     function escapeHtml(str) {
       return String(str ?? "")
         .replaceAll("&", "&amp;")
@@ -619,6 +673,10 @@
         const activatedFull = formatDateTimeWIB(row.activated_at);
         const hasHwid = Boolean(row.hwid && String(row.hwid).trim());
 
+        const copyBtn = ALLOW_KEY_COPY
+          ? `<button class="mini" data-action="copy" data-code="${escapeHtml(row.key_code)}">Copy</button>`
+          : "";
+
         const adminBanBtn = activeRole === "admin"
           ? `<button class="mini" data-action="ban" data-id="${escapeHtml(row.id)}" data-status="${escapeHtml(row.status)}">${row.status === "ACTIVE" ? "Ban" : "Unban"}</button>`
           : "";
@@ -655,7 +713,7 @@
               </div>
               <div class="actions">
                 <button class="mini" data-action="detail" data-id="${escapeHtml(row.id)}">${isOpen ? "Tutup" : "Detail"}</button>
-                <button class="mini" data-action="copy" data-code="${escapeHtml(row.key_code)}">Copy</button>
+                ${copyBtn}
                 <button class="mini" data-action="reset" data-id="${escapeHtml(row.id)}">Reset</button>
                 ${adminBanBtn}
                 ${deleteBtn}
@@ -676,6 +734,7 @@
       if (action === "detail") {
         toggleDetail(id);
       } else if (action === "copy") {
+        if (!ALLOW_KEY_COPY) return;
         await navigator.clipboard.writeText(btn.dataset.code || "");
         btn.textContent = "Tersalin";
         setTimeout(() => { btn.textContent = "Copy"; }, 1000);
