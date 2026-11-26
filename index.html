@@ -288,6 +288,7 @@
     .actions { display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
     .mini { width: auto; padding: 5px 8px; font-size: 10.5px; border-radius: 7px; background: rgba(255, 255, 255, 0.08); color: #fff; }
     .mini:hover { background: rgba(255, 255, 255, 0.15); }
+    .mini.copied { background: rgba(92, 230, 181, 0.2); color: var(--mint); }
     .mini.del { background: rgba(255, 107, 129, 0.16); color: #ff9aa8; }
     .mini.del:hover { background: rgba(255, 107, 129, 0.26); }
 
@@ -463,10 +464,11 @@
 
     let activeUser = null;
     let activeRole = "friend";
+    let allowProgrammaticCopy = false;
     const expandedIds = new Set();
 
-    // Atur ke true jika ingin mengizinkan tombol Copy menyalin key
-    const ALLOW_KEY_COPY = false;
+    // Tombol Copy key diaktifkan
+    const ALLOW_KEY_COPY = true;
 
     document.addEventListener("contextmenu", (e) => {
       if (!e.target.closest("input, select, textarea")) {
@@ -479,6 +481,7 @@
     });
 
     document.addEventListener("copy", (e) => {
+      if (allowProgrammaticCopy) return;
       if (!e.target.closest("input, select, textarea")) {
         e.preventDefault();
       }
@@ -514,6 +517,33 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+    }
+
+    async function copyToClipboard(text) {
+      if (!text) return false;
+      allowProgrammaticCopy = true;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch (_err) {
+        return false;
+      } finally {
+        setTimeout(() => {
+          allowProgrammaticCopy = false;
+        }, 50);
+      }
     }
 
     function formatDateTimeWIB(isoStr) {
@@ -735,9 +765,14 @@
         toggleDetail(id);
       } else if (action === "copy") {
         if (!ALLOW_KEY_COPY) return;
-        await navigator.clipboard.writeText(btn.dataset.code || "");
-        btn.textContent = "Tersalin";
-        setTimeout(() => { btn.textContent = "Copy"; }, 1000);
+        const ok = await copyToClipboard(btn.dataset.code || "");
+        const prevText = btn.textContent;
+        btn.textContent = ok ? "Tersalin" : "Gagal";
+        btn.classList.toggle("copied", ok);
+        setTimeout(() => {
+          btn.textContent = prevText === "Tersalin" || prevText === "Gagal" ? "Copy" : prevText;
+          btn.classList.remove("copied");
+        }, 1200);
       } else if (action === "reset") {
         await resetHwid(id);
       } else if (action === "ban") {
